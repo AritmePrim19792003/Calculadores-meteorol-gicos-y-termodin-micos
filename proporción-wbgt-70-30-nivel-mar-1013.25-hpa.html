@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Calculador ITSS 70/30 Simple</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; display: flex; justify-content: center; padding: 40px; }
+        .card { background: white; padding: 25px; border-radius: 15px; shadow: 0 4px 6px rgba(0,0,0,0.1); width: 350px; border: 1px solid #ddd; }
+        h2 { color: #2c3e50; text-align: center; font-size: 1.2rem; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 5px; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #2980b9; }
+        .result { margin-top: 20px; padding: 15px; background: #e8f4fd; border-radius: 10px; text-align: center; display: none; }
+        .val { font-size: 2rem; font-weight: bold; color: #2980b9; }
+        .label { font-size: 0.7rem; color: #7f8c8d; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Índice 70/30 (Estándar)</h2>
+    
+    <div class="input-group">
+        <label>Temperatura Seca (°C)</label>
+        <input type="number" id="td" value="30" step="0.1">
+    </div>
+    <div class="input-group">
+        <label>Humedad Relativa (%)</label>
+        <input type="number" id="rh" value="50" step="1">
+    </div>
+
+    <button onclick="calcular()">CALCULAR</button>
+
+    <div id="panel" class="result">
+        <div class="label">Resultado Índice</div>
+        <div id="res" class="val">--</div>
+        <div style="font-size: 0.8rem; color: #555; margin-top: 5px;">
+            Tw: <span id="twVal">--</span>°C
+        </div>
+    </div>
+</div>
+
+<script>
+    function getEs(t) {
+        // Presión de vapor de saturación (Tetens)
+        return 6.112 * Math.exp((17.67 * t) / (t + 243.5));
+    }
+
+    function calcular() {
+        const Td = parseFloat(document.getElementById('td').value);
+        const RH = parseFloat(document.getElementById('rh').value);
+        const P = 1013.25; // Presión Estándar
+
+        // 1. Presión de vapor actual (e)
+        const e = getEs(Td) * (RH / 100);
+
+        // 2. Newton-Raphson para Tw
+        let tw = Td; // Semilla
+        for (let i = 0; i < 10; i++) {
+            let es_tw = getEs(tw);
+            let A = 0.00066 * (1 + 0.00115 * tw);
+            
+            // Función f(tw) = es(tw) - A*P*(Td - tw) - e
+            let f = es_tw - (A * P * (Td - tw)) - e;
+            
+            // Derivada f'(tw)
+            let des_tw = es_tw * (17.67 * 243.5) / Math.pow(tw + 243.5, 2);
+            let df = des_tw + (A * P);
+            
+            let step = f / df;
+            tw -= step;
+            if (Math.abs(step) < 0.001) break;
+        }
+
+        // 3. Fórmula 70/30
+        const indice = (tw * 0.70) + (Td * 0.30);
+
+        document.getElementById('res').innerText = indice.toFixed(2);
+        document.getElementById('twVal').innerText = tw.toFixed(2);
+        document.getElementById('panel').style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
