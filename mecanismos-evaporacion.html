@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculador Dinámico de Fronteras Térmicas</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-color: #2c3e50;
+            --primary: #2980b9;
+            --accent-blue: #3498db;
+            --accent-green: #2ecc71;
+            --accent-orange: #e67e22;
+            --border-color: #dcdde1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 950px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            font-size: 1.5rem;
+            letter-spacing: 1px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+        }
+
+        hr {
+            border: 0;
+            height: 1px;
+            background: var(--border-color);
+            margin: 25px 0;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            color: var(--primary);
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            font-weight: bold;
+            border-left: 4px solid var(--primary);
+            padding-left: 10px;
+        }
+
+        /* Formulario de entradas */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 5px;
+        }
+
+        .input-group input {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 1rem;
+            color: var(--text-color);
+        }
+
+        /* Rejilla de resultados psicrométricos */
+        .grid-props {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .data-card {
+            background: #fafbfc;
+            border: 1px solid var(--border-color);
+            padding: 12px 15px;
+            border-radius: 6px;
+        }
+
+        .data-card span {
+            display: block;
+            font-size: 0.85rem;
+            color: #7f8c8d;
+        }
+
+        .data-card strong {
+            font-size: 1.1rem;
+        }
+
+        /* Los 3 Factores */
+        .factor-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .factor-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            border-radius: 6px;
+            font-weight: 500;
+            border-left: 5px solid #ccc;
+        }
+
+        #f1-row { background-color: #ebf5fb; border-left-color: var(--accent-blue); }
+        #f2-row { background-color: #fdf2e9; border-left-color: var(--accent-orange); }
+        #f3-row { background-color: #e8f8f5; border-left-color: var(--accent-green); }
+
+        .factor-val {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.15rem;
+            font-weight: bold;
+        }
+
+        /* Bloques de Diagnóstico */
+        .diag-box {
+            background: #fdfefe;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .diag-header {
+            font-weight: bold;
+            font-size: 1rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: white;
+            font-weight: bold;
+        }
+
+        .bg-blue { background-color: var(--accent-blue); }
+        .bg-green { background-color: var(--accent-green); }
+        .bg-orange { background-color: var(--accent-orange); }
+
+        ul {
+            margin: 5px 0 0 0;
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Calculador de Fronteras Térmicas</h1>
+    <div class="subtitle">Simulador psicrométrico e interpretador del comportamiento Agua-Aire</div>
+    
+    <div class="section-title">1. Parámetros de Entrada</div>
+    <div class="form-grid">
+        <div class="input-group">
+            <label for="t_air">Temp. del Aire (°C)</label>
+            <input type="number" id="t_air" value="33" step="0.1" oninput="calcularTodo()">
+        </div>
+        <div class="input-group">
+            <label for="hr">Humedad Relativa (%)</label>
+            <input type="number" id="hr" value="70" min="1" max="100" step="1" oninput="calcularTodo()">
+        </div>
+        <div class="input-group">
+            <label for="altitud">Altitud (metros)</label>
+            <input type="number" id="altitud" value="0" min="0" step="100" oninput="calcularTodo()">
+        </div>
+        <div class="input-group">
+            <label for="t_agua">Temp. Inicial del Agua (°C)</label>
+            <input type="number" id="t_agua" value="5" step="0.1" oninput="calcularTodo()">
+        </div>
+    </div>
+
+    <hr>
+
+    <div class="section-title">2. Propiedades Físicas del Entorno</div>
+    <div class="grid-props">
+        <div class="data-card"><span>Presión Atmosférica (P_atm)</span><strong id="lbl_patm">-- kPa</strong></div>
+        <div class="data-card"><span>Presión Vapor Aire (P_A)</span><strong id="lbl_pa">-- kPa</strong></div>
+        <div class="data-card"><span>Presión Vapor Superficie (P_W)</span><strong id="lbl_pw">-- kPa</strong></div>
+        <div class="data-card"><span>Punto de Rocío (T_dp)</span><strong id="lbl_tdp">-- °C</strong></div>
+        <div class="data-card"><span>Bulbo Húmedo (T_bh)</span><strong id="lbl_tbh">-- °C</strong></div>
+    </div>
+
+    <hr>
+
+    <div class="section-title">3. Los 3 Factores Clave (Fuerzas Impulsoras)</div>
+    <div class="factor-container">
+        <div class="factor-row" id="f1-row">
+            <div>1. [MOTOR ABSOLUTO] Diferencia de Presiones de Vapor (P_W - P_A)</div>
+            <div class="factor-val" id="lbl_f1">-- kPa</div>
+        </div>
+        <div class="factor-row" id="f2-row">
+            <div>2. [TERMOSTATO DE FRONTERA] Diferencia de Temperatura Superficial (T_agua - T_bh)</div>
+            <div class="factor-val" id="lbl_f2">-- °C</div>
+        </div>
+        <div class="factor-row" id="f3-row">
+            <div>3. [INTERRUPTOR BINARIO] Distancia al Punto de Rocío (T_agua - T_dp)</div>
+            <div class="factor-val" id="lbl_f3">-- °C</div>
+        </div>
+    </div>
+
+    <hr>
+
+    <div class="section-title">4. Diagnóstico e Interpretación Física</div>
+    
+    <div class="diag-box">
+        <div class="diag-header">
+            <span>A) Comportamiento Instantáneo (Fotografía del momento)</span>
+            <span id="badge_instantaneo" class="badge">--</span>
+        </div>
+        <p id="txt_instantaneo" style="margin: 5px 0; color: #4a5568;"></p>
+    </div>
+
+    <div class="diag-box">
+        <div class="diag-header">
+            <span>B) Dinámica Predictiva (Dirección del futuro térmico)</span>
+            <span id="badge_predictivo" class="badge">--</span>
+        </div>
+        <p id="txt_predictivo" style="margin: 5px 0; color: #4a5568;"></p>
+    </div>
+
+    <div class="diag-box">
+        <div class="diag-header">
+            <span>C) El impacto del entorno mecánico (Altitud y Viento)</span>
+            <span class="badge bg-blue">VARIABLES DINÁMICAS</span>
+        </div>
+        <ul>
+            <li id="txt_altitud"></li>
+            <li>
+                <strong>Papel del Viento en el sistema:</strong>
+                <ul>
+                    <li><em>Limpia de Capa Límite:</em> Si el aire se quedara quieto, el agua se aislaría bajo un microclima local al 100% de humedad, deteniendo el proceso. El viento actúa como un escobillón mecánico continuo que barre ese vapor y lo sustituye por aire fresco del ambiente, manteniendo el <strong>Factor 1</strong> en su máximo potencial.</li>
+                    <li><em>Renovación Convectiva:</em> Aumenta drásticamente la transferencia de calor del aire. Obliga a la delgada película del agua a viajar de manera acelerada hacia su destino predictivo marcado por el <strong>Factor 2 (T_bh)</strong>, restando o sumando energía según el caso.</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    // Función matemática de saturación (Ecuación de Tetens)
+    function presSat(t) {
+        return 0.61078 * Math.exp((17.27 * t) / (t + 237.3));
+    }
+
+    function calcularTodo() {
+        // Capturar entradas
+        let T_air = parseFloat(document.getElementById('t_air').value);
+        let HR = parseFloat(document.getElementById('hr').value);
+        let altitud = parseFloat(document.getElementById('altitud').value);
+        let T_agua = parseFloat(document.getElementById('t_agua').value);
+
+        // Validaciones básicas de seguridad por si borran campos
+        if (isNaN(T_air) || isNaN(HR) || isNaN(altitud) || isNaN(T_agua)) return;
+        if (HR > 100) HR = 100; if (HR < 0) HR = 0;
+
+        // 1. Presión atmosférica según modelo estándar de altitud
+        let P_atm = 101.325 * Math.pow((1 - 2.25577e-5 * altitud), 5.25588);
+
+        // 2. Presiones de vapor
+        let P_sat_air = presSat(T_air);
+        let P_A = P_sat_air * (HR / 100.0);
+        let P_W = presSat(T_agua);
+
+        // 3. Punto de rocío (Inversa de Tetens)
+        let alpha = Math.log(P_A / 0.61078);
+        let T_dp = (237.3 * alpha) / (17.27 - alpha);
+
+        // 4. Temperatura de bulbo húmedo usando método numérico de bisección psicrométrica
+        let low = T_dp;
+        let high = T_air;
+        let T_bh = (low + high) / 2.0;
+        let gamma = 0.00066 * P_atm; // Constante psicrométrica adaptada a la altitud
+
+        for (let i = 0; i < 60; i++) {
+            let f_val = presSat(T_bh) - P_A - gamma * (T_air - T_bh);
+            if (Math.abs(f_val) < 1e-5) break;
+            if (f_val > 0) high = T_bh;
+            else low = T_bh;
+            T_bh = (low + high) / 2.0;
+        }
+
+        // 5. Calcular las 3 diferencias (Factores)
+        let F1 = P_W - P_A;
+        let F2 = T_agua - T_bh;
+        let F3 = T_agua - T_dp;
+
+        // --- IMPRIMIR VALORES EN PANTALLA ---
+        document.getElementById('lbl_patm').innerText = P_atm.toFixed(2) + " kPa";
+        document.getElementById('lbl_pa').innerText = P_A.toFixed(2) + " kPa";
+        document.getElementById('lbl_pw').innerText = P_W.toFixed(2) + " kPa";
+        document.getElementById('lbl_tdp').innerText = T_dp.toFixed(1) + " °C";
+        document.getElementById('lbl_tbh').innerText = T_bh.toFixed(1) + " °C";
+
+        document.getElementById('lbl_f1').innerText = (F1 >= 0 ? "+" : "") + F1.toFixed(2) + " kPa";
+        document.getElementById('lbl_f2').innerText = (F2 >= 0 ? "+" : "") + F2.toFixed(1) + " °C";
+        document.getElementById('lbl_f3').innerText = (F3 >= 0 ? "+" : "") + F3.toFixed(1) + " °C";
+
+        // --- EXPLICACIÓN DE TEXTOS EN TIEMPO REAL ---
+
+        // Diagnóstico A (Instantáneo)
+        let badgeI = document.getElementById('badge_instantaneo');
+        let txtI = document.getElementById('txt_instantaneo');
+
+        if (F3 > 0.01) {
+            badgeI.innerText = "ESCENARIO: EVAPORACIÓN ACTIVA";
+            badgeI.className = "badge bg-blue";
+            txtI.innerHTML = `Como tu temperatura del agua (<strong>${T_agua.toFixed(1)}°C</strong>) supera el Punto de Rocío del aire (<strong>${T_dp.toFixed(1)}°C</strong>), el interruptor físico está activado. La presión de escape del agua (P_W = ${P_W.toFixed(2)} kPa) es mayor que la presión del entorno (P_A = ${P_A.toFixed(2)} kPa). El <strong>Factor 1 (Motor)</strong> empuja con una fuerza neta positiva de <strong>${F1.toFixed(2)} kPa</strong>, haciendo que el agua pierda moléculas hacia la atmósfera inmediatamente.`;
+        } else if (F3 < -0.01) {
+            badgeI.innerText = "ESCENARIO: CONDENSACIÓN NETA";
+            badgeI.className = "badge bg-green";
+            txtI.innerHTML = `Como tu temperatura del agua (<strong>${T_agua.toFixed(1)}°C</strong>) es inferior al Punto de Rocío (<strong>${T_dp.toFixed(1)}°C</strong>), el interruptor se ha invertido. La presión del aire (P_A = ${P_A.toFixed(2)} kPa) es superior a la del agua (P_W = ${P_W.toFixed(2)} kPa). El aire que roza el agua se satura por enfriamiento, obligando al vapor flotante a licuarse en la superficie. <strong>¡La cantidad de agua en el recipiente está aumentando en este instante!</strong>`;
+        } else {
+            badgeI.innerText = "ESCENARIO: EQUILIBRIO NEUTRO";
+            badgeI.className = "badge";
+            txtI.innerHTML = `Las presiones de vapor están perfectamente emparejadas. No hay transferencia neta de masa en este instante.`;
+        }
+
+        // Diagnóstico B (Predictivo)
+        let badgeP = document.getElementById('badge_predictivo');
+        let txtP = document.getElementById('txt_predictivo');
+
+        if (F2 > 0.1) {
+            badgeP.innerText = "ENFRIAMIENTO EVAPORATIVO";
+            badgeP.className = "badge bg-blue";
+            txtP.innerHTML = `La temperatura de tu agua está por encima del bulbo húmedo (T_bh = ${T_bh.toFixed(1)}°C). La evaporación será tan intensa que el agua sacrificará calor latente a gran velocidad. El futuro del sistema es claro: <strong>la película superficial del agua se va a enfriar rápidamente</strong> buscando el equilibrio en la T_bh, reduciendo consecuentemente la fuerza del motor en los próximos minutos.`;
+        } else if (F2 < -0.1) {
+            badgeP.innerText = "CALENTAMIENTO SUPERFICIAL FLASH";
+            badgeP.className = "badge bg-orange";
+            txtP.innerHTML = `La temperatura de tu agua está por debajo de la barrera de bulbo húmedo (T_bh = ${T_bh.toFixed(1)}°C). El aire inyectará energía por convección mucho más rápido de lo que el agua puede disiparlo. El futuro del sistema es que <strong>la película superficial se calentará instantáneamente</strong> hacia la T_bh. Esto disparará la P_W, ayudando al agua a evaporarse más rápido (o debilitando la condensación actual).`;
+        } else {
+            badgeP.innerText = "EQUILIBRIO TÉRMICO DE FRONTERA";
+            badgeP.className = "badge bg-green";
+            txtP.innerHTML = `La superficie del agua ya se encuentra exactamente a la temperatura de bulbo húmedo. Los flujos de calor sensible que entran por el aire empatan al milímetro con las pérdidas latentes por evaporación. La temperatura de la película se mantendrá estable.`;
+        }
+
+        // Diagnóstico C (Altitud)
+        document.getElementById('txt_altitud').innerHTML = `<strong>Papel de la Altitud de tu simulación (${altitud.toFixed(0)} m):</strong> Al estar a esta altura, la presión del aire se reduce a <strong>${P_atm.toFixed(2)} kPa</strong>. Al estar el aire más vacío y "rarecido", las moléculas de agua que intentan escapar experimentan menos colisiones mecánicas en la atmósfera. Esto aumenta la velocidad de difusividad del vapor. A igual diferencia de presiones (Factor 1), la evaporación en la altitud es notablemente más rápida que a nivel del mar.`;
+    }
+
+    // Arrancar el cálculo automáticamente al abrir la página
+    window.onload = calcularTodo;
+</script>
+
+</body>
+</html>
