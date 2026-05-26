@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Calculador 70-30 y WBGT</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 40px; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 420px; border: 1px solid #ddd; margin-bottom: 25px; }
+        h2 { color: #2c3e50; text-align: center; font-size: 1.2rem; margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 5px; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        button:hover { background: #2980b9; }
+        
+        .result-container { margin-top: 20px; display: none; }
+        .result-box { padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 10px; }
+        .standard { background: #e8f4fd; border: 1px solid #d1e9f9; }
+        .modified { background: #fdf2e8; border: 1px solid #f9e1d1; }
+        .wbgt-range { background: #f0fdf4; border: 1px solid #bbf7d0; }
+        
+        .val { font-size: 1.8rem; font-weight: bold; color: #2c3e50; }
+        .label { font-size: 0.7rem; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
+        .sub-val { font-size: 0.8rem; color: #555; margin-top: 5px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 5px; }
+        .hr-badge { font-weight: bold; color: #d35400; }
+
+        /* Estilos para el bloque de documentación y tabla */
+        .info-panel { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 650px; border: 1px solid #ddd; margin-top: 10px; font-size: 0.9rem; line-height: 1.5; color: #34495e; }
+        .info-panel h3 { color: #2c3e50; margin-top: 18px; margin-bottom: 12px; font-size: 1.1rem; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
+        .info-panel h3:first-child { margin-top: 0; }
+        .info-panel p { margin-bottom: 12px; text-align: justify; }
+        
+        .wbgt-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; }
+        .wbgt-table th, .wbgt-table td { padding: 10px; text-align: center; border: 1px solid #ddd; }
+        .wbgt-table th { background: #f2f2f2; color: #2c3e50; font-weight: bold; }
+        
+        /* Colores oficiales de riesgo WBGT */
+        .bg-normal { background-color: #ffffff; color: #000; }
+        .bg-verde { background-color: #2ecc71; color: white; font-weight: bold; }
+        .bg-amarillo { background-color: #f1c40f; color: black; font-weight: bold; }
+        .bg-rojo { background-color: #e74c3c; color: white; font-weight: bold; }
+        .bg-negro { background-color: #2c3e50; color: white; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Calculador 70-30 y WBGT</h2>
+    
+    <div class="input-group">
+        <label>Temperatura Seca (°C)</label>
+        <input type="number" id="td" value="30" step="0.1">
+    </div>
+    <div class="input-group">
+        <label>Humedad Relativa (%)</label>
+        <input type="number" id="rh" value="50" step="0.1">
+    </div>
+
+    <button onclick="calcular()">CALCULAR RESULTADOS</button>
+
+    <div id="panel" class="result-container">
+        <div class="result-box standard">
+            <div class="label">Índice Estándar (70/30)</div>
+            <div id="res" class="val">--</div>
+            <div class="sub-val">Tw: <span id="twVal">--</span>°C | HR: <span id="hrOrig">--</span>%</div>
+        </div>
+
+        <div class="result-box modified">
+            <div class="label">Aproximación WBGT (Factor de corrección sobre globo negro)</div>
+            <div id="resMod" class="val">--</div>
+            <div class="sub-val">Tw Mod: <span id="twValMod">--</span>°C | HR Final Mod: <span class="hr-badge" id="hrMod">--</span>%</div>
+        </div>
+
+        <div class="result-box wbgt-range">
+            <div class="label">WBGT Estimado (Horquilla Climatológica)</div>
+            <div id="wbgtRange" class="val" style="color: #15803d;">--</div>
+            <div class="sub-val">Variación según balance radiativo y humedad del suelo</div>
+        </div>
+    </div>
+</div>
+
+<div class="info-panel">
+    <h3>Fundamentos Físicos y Metodología</h3>
+    <p>
+        El aumento final para la aproximación al WBGT corregido oscila típicamente entre <strong>+2 °C</strong> (característico de climas lluviosos todo el año) y <strong>+3 °C</strong> (propio de climas áridos todo el año). Esta variación responde directamente a la humedad inherente de los suelos y al severo impacto que provoca la emisión de ondas largas sobre la temperatura final del globo negro.
+    </p>
+    <p>
+        Las modificaciones aplicadas sobre el modelo 70/30 original sintetizan de forma matemática la observación empírica de la diferencia neta entre la temperatura del suelo y la temperatura seca del aire en función de la humedad relativa (HR), basándose en datos de estaciones de la <strong>AEMET</strong>. Dicha observación se ha centrado estrictamente en aislar la diferencia a las mismas horas, comparando cada estación únicamente consigo misma. De este modo, se elude cualquier tipo de contaminación por "datos basura" o distorsiones derivadas de cruzar ubicaciones geográficas con características térmicas e irradiativas dispares. Asimismo, el algoritmo integra de forma analítica y resumida los trabajos de <strong>Liljeberg</strong> para comportamientos termodinámicos en condiciones de humedades relativas extremadamente bajas y extremadamente altas.
+    </p>
+
+    <h3>Contexto de Aplicación y Dinámica de Altitud</h3>
+    <p>
+        <strong>Contexto operativo:</strong> Este modelo está diseñado estrictamente para entornos de <strong>exteriores y al aire libre</strong>, completamente desprovistos de paredes o techos cercanos. Su validez se restringe a condiciones <strong>diurnas</strong> con una radiación solar directa significativa, requiriendo una <strong>altitud solar superior a un mínimo de 30°</strong> durante la tarde, o <strong>superior a 45° de elevación</strong> antes del mediodía solar.
+    </p>
+    <p>
+        <strong>Efecto de la altitud:</strong> El índice WBGT tiende a elevarse ligeramente con la altitud hasta alcanzar los 2000-3000 msnm. Esto se debe al incremento neto de la radiación solar incidente y a una menor pérdida de calor por convección del aire sobre el globo negro (el cual permanece infaliblemente más cálido que la temperatura seca del aire). No obstante, en episodios de gran impacto epidemiológico por estrés térmico, es altamente recomendable <strong>normalizar las lecturas a nivel del mar</strong>. Esto se justifica porque a partir de umbrales críticos entre 33°C y 35°C, la transferencia de calor por convección de una masa de aire demasiado cálida para el cuerpo humano se vuelve un factor de riesgo mucho más potente a menor altitud debido a la densidad atmosférica.
+    </p>
+
+    <h3>Tabla de Umbrales de Riesgo WBGT e Impactos en la Salud</h3>
+    <table class="wbgt-table">
+        <thead>
+            <tr>
+                <th>WBGT (°C) / Bandera / Riesgo</th>
+                <th>Impactos en la Salud (Adultos)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="bg-normal">
+                <td>&lt; 27.8 °C <br><small>Riesgo normal o bajo</small></td>
+                <td>Condiciones seguras. Mantener las medidas de hidratación habituales según la actividad física.</td>
+            </tr>
+            <tr class="bg-verde">
+                <td>27.8 – 29.4 °C <br>Verde / Bajo</td>
+                <td>El cuerpo experimenta estrés térmico después de 45 minutos de exposición continua.</td>
+            </tr>
+            <tr class="bg-amarillo">
+                <td>29.4 – 31.1 °C <br>Amarillo / Moderado</td>
+                <td>El cuerpo experimenta estrés térmico después de 30 minutos. Es probable la aparición de calambres por calor.</td>
+            </tr>
+            <tr class="bg-rojo">
+                <td>31.1 – 32.2 °C <br>Rojo / Alto</td>
+                <td>El cuerpo experimenta estrés térmico después de 20 minutos. Es probable sufrir agotamiento por calor.</td>
+            </tr>
+            <tr class="bg-negro">
+                <td>&gt; 32.2 °C <br>Negro / Extremo</td>
+                <td>El cuerpo experimenta estrés térmico después de 15 minutos. Es altamente probable sufrir un golpe de calor.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    function getEs(t) {
+        return 6.112 * Math.exp((17.67 * t) / (t + 243.5));
+    }
+
+    function calcularTw(Td, RH, P) {
+        const e = getEs(Td) * (RH / 100);
+        let tw = Td; 
+        for (let i = 0; i < 15; i++) {
+            let es_tw = getEs(tw);
+            let A = 0.00066 * (1 + 0.00115 * tw);
+            let f = es_tw - (A * P * (Td - tw)) - e;
+            let des_tw = es_tw * (17.67 * 243.5) / Math.pow(tw + 243.5, 2);
+            let df = des_tw + (A * P);
+            let step = f / df;
+            tw -= step;
+            if (Math.abs(step) < 0.0001) break;
+        }
+        return tw;
+    }
+
+    function calcular() {
+        const Td = parseFloat(document.getElementById('td').value);
+        const RH = parseFloat(document.getElementById('rh').value);
+        const P = 1013.25;
+
+        // --- CÁLCULO 1: ESTÁNDAR 70/30 ---
+        const twEstandar = calcularTw(Td, RH, P);
+        const indiceEstandar = (twEstandar * 0.70) + (Td * 0.30);
+
+        // --- CÁLCULO 2: MODIFICADO (Factor de corrección sobre globo negro) ---
+        
+        // FASE 1: Modificación inicial estricta por umbrales exteriores (Se mantiene igual)
+        let hrModificada = RH;
+        if (RH < 25) {
+            hrModificada = RH + (25 - RH) / 8;
+        } else if (RH > 75) {
+            hrModificada = 75 + (RH - 75) * 0.75;
+        }
+
+        // FASE 2: Modificaciones sumatorias acumulativas con nuevas proporciones
+        let sumaFase2 = 0;
+
+        if (RH >= 0 && RH < 25) {
+            // Proporcionalmente de +0.25 a +0.75
+            let pct = (RH - 0) / (25 - 0);
+            sumaFase2 = 0.25 + (0.75 - 0.25) * pct;
+        } 
+        else if (RH >= 25 && RH < 42.5) {
+            // Proporcionalmente de +0.75 a +2.0
+            let pct = (RH - 25) / (42.5 - 25);
+            sumaFase2 = 0.75 + (2.0 - 0.75) * pct;
+        } 
+        else if (RH >= 42.5 && RH <= 45) {
+            // Constante en +2.0
+            sumaFase2 = 2.0;
+        } 
+        else if (RH > 45 && RH <= 50) {
+            // Proporcionalmente de +2.0 a +1.75
+            let pct = (RH - 45) / (50 - 45);
+            sumaFase2 = 2.0 + (1.75 - 2.0) * pct;
+        } 
+        else if (RH > 50 && RH <= 100) {
+            // Proporcionalmente de +1.75 a +0.25
+            let pct = (RH - 50) / (100 - 50);
+            sumaFase2 = 1.75 + (0.25 - 1.75) * pct;
+        }
+
+        // Se acumula la segunda modificación sobre la primera
+        hrModificada += sumaFase2;
+
+        // Control de desbordamiento físico de la humedad
+        if (hrModificada > 100) hrModificada = 100;
+        if (hrModificada < 0) hrModificada = 0;
+
+        // Recálculo termodinámico modificado base
+        const twModificada = calcularTw(Td, hrModificada, P);
+        const resultadoFinalWBGTBase = (twModificada * 0.70) + (Td * 0.30);
+
+        // --- CÁLCULO 3: HORQUILLA LIBRE WBGT MODIFICADA (+1.75°C a +2.75°C) ---
+        const wbgtMin = resultadoFinalWBGTBase + 1.75;
+        const wbgtMax = resultadoFinalWBGTBase + 2.75;
+
+        // --- ACTUALIZAR INTERFAZ ---
+        // Bloque 1
+        document.getElementById('res').innerText = indiceEstandar.toFixed(2);
+        document.getElementById('twVal').innerText = twEstandar.toFixed(2);
+        document.getElementById('hrOrig').innerText = RH;
+
+        // Bloque 2
+        document.getElementById('resMod').innerText = resultadoFinalWBGTBase.toFixed(2);
+        document.getElementById('twValMod').innerText = twModificada.toFixed(2);
+        document.getElementById('hrMod').innerText = hrModificada.toFixed(3);
+
+        // Bloque 3
+        document.getElementById('wbgtRange').innerText = wbgtMin.toFixed(2) + " °C - " + wbgtMax.toFixed(2) + " °C";
+
+        document.getElementById('panel').style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
