@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Calculador distintas proporciones t wet / t dry + humidex y heat index</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #2c3e50; margin-bottom: 25px; }
+        .setup { display: flex; flex-wrap: wrap; gap: 15px; background: #edf2f7; padding: 20px; border-radius: 8px; justify-content: center; align-items: flex-end; }
+        .input-box { display: flex; flex-direction: column; gap: 5px; font-size: 0.9em; }
+        input { padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; }
+        button { padding: 10px 25px; background: #3182ce; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #2b6cb0; }
+        .table-container { height: 500px; overflow-y: auto; margin-top: 20px; border: 1px solid #e2e8f0; }
+        table { width: 100%; border-collapse: collapse; }
+        thead { position: sticky; top: 0; background: #2d3748; color: white; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #edf2f7; font-size: 0.85em; }
+        
+        .sub-wet { font-size: 0.75em; color: #718096; display: block; margin-top: 2px; }
+        .rh-notice { margin-top: 15px; padding: 10px 15px; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 6px; color: #c53030; font-size: 0.85em; font-weight: bold; text-align: center; }
+        
+        .info-box { margin-top: 25px; padding: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; font-size: 0.9em; line-height: 1.6; }
+        .info-box h3 { margin-top: 0; color: #1e293b; }
+        .info-box ul { margin-bottom: 15px; padding-left: 20px; }
+        .warning-text { background: #fff5f5; border-left: 4px solid #e53e3e; padding: 12px; margin-top: 15px; border-radius: 0 4px 4px 0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Calculador distintas proporciones t wet / t dry + humidex y heat index</h2>
+    <div class="setup">
+        <div class="input-box"><label>Temperatura Seca (Tdry) °C</label><input type="number" id="tdry" value="30" step="0.1"></div>
+        <div class="input-box"><label>Humedad Relativa (RH) %</label><input type="number" id="rh" value="50" step="1" min="0" max="100"></div>
+        <button onclick="calcular()">Calcular Proporciones e Índices</button>
+    </div>
+
+    <div id="rhNotice" class="rh-notice" style="display: none;"></div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Proporción / Índice</th>
+                    <th>Ponderación Twet</th>
+                    <th>Ponderación Tdry</th>
+                    <th>Resultado (°C)</th>
+                    <th>Contexto / Aplicación Recomendada</th>
+                </tr>
+            </thead>
+            <tbody id="resBody"></tbody>
+        </table>
+    </div>
+
+    <div class="info-box">
+        <h3>Recomendaciones de Uso por Proporción</h3>
+        <ul>
+            <li><strong>50 - 50:</strong> Indicado para temperaturas inferiores a 25 °C y para evaluar el efecto del viento. Por encima de 35 °C de resultado 50-50 el viento es nocivo para el humano y no se debe usar ventilador; por debajo de 35 °C el viento ayuda al refrescamiento y es un valor apto para el uso del ventilador.</li>
+            <li><strong>62.5 - 37.5:</strong> Proporción intermedia para rangos templados y de transición (25 °C - 30 °C).</li>
+            <li><strong>68.75 - 31.25 y 70 - 30:</strong> Recomendado para temperaturas superiores a 30 °C.</li>
+            <li><strong>75 - 25:</strong> Indicado para temperaturas superiores a 62.5 °C (saunas) o para la predicción de las mínimas diarias posteriores (entre otros muchos factores).</li>
+            <li><strong>Humidex & Heat Index:</strong> Índices estandarizados internacionales basados en la combinación de temperatura seca y humedad relativa.</li>
+        </ul>
+
+        <div class="warning-text">
+            <strong>Nota sobre altitud y balance radiativo:</strong> Los resultados de estos calculadores son a nivel de mar y no están corregidos por altitud, porque están orientados a contexto diurno y balance radiativo positivo.
+        </div>
+    </div>
+</div>
+
+<script>
+// Presión de vapor de saturación (Tetens)
+function getEs(t) {
+    return 6.112 * Math.exp((17.67 * t) / (t + 243.5));
+}
+
+// Algoritmo de Newton-Raphson estricto
+function obtenerTwetNewtonRaphson(Td, RH) {
+    const P = 1013.25;
+    const e = getEs(Td) * (RH / 100);
+
+    let tw = Td;
+    for (let i = 0; i < 10; i++) {
+        let es_tw = getEs(tw);
+        let A = 0.00066 * (1 + 0.00115 * tw);
+        
+        let f = es_tw - (A * P * (Td - tw)) - e;
+        let des_tw = es_tw * (17.67 * 243.5) / Math.pow(tw + 243.5, 2);
+        let df = des_tw + (A * P);
+        
+        let step = f / df;
+        tw -= step;
+        if (Math.abs(step) < 0.001) break;
+    }
+    return tw;
+}
+
+function calcular() {
+    const tdry = parseFloat(document.getElementById('tdry').value);
+    const rhInicial = parseFloat(document.getElementById('rh').value);
+    const body = document.getElementById('resBody');
+    const rhNotice = document.getElementById('rhNotice');
+    body.innerHTML = "";
+
+    if (isNaN(tdry) || isNaN(rhInicial)) {
+        alert("Por favor, introduce valores numéricos válidos.");
+        return;
+    }
+
+    // Modificación solicitada: Ajustar HR si supera el 75%
+    let rh = rhInicial;
+    if (rhInicial > 75) {
+        rh = ((rhInicial - 75) * 0.2) + 75;
+        rhNotice.textContent = `* Nota: Al superar el 75% de HR inicial (${rhInicial}%), los cálculos se realizaron utilizando una HR ajustada de ${rh.toFixed(1)}%.`;
+        rhNotice.style.display = "block";
+    } else {
+        rhNotice.style.display = "none";
+    }
+
+    const twet = obtenerTwetNewtonRaphson(tdry, rh);
+
+    const proporciones = [
+        { wet: 50.0, dry: 50.0, label: "50 - 50", rec: "Temperaturas inferiores a 25 °C y evaluación del viento/ventilador" },
+        { wet: 62.5, dry: 37.5, label: "62.5 - 37.5", rec: "Rango templado/transición (25 °C - 30 °C)" },
+        { wet: 68.75, dry: 31.25, label: "68.75 - 31.25", rec: "Temperaturas superiores a 30 °C" },
+        { wet: 70.0, dry: 30.0, label: "70 - 30", rec: "Temperaturas superiores a 30 °C" },
+        { wet: 75.0, dry: 25.0, label: "75 - 25", rec: "Temperaturas superiores a 62.5 °C (saunas) o predicción de mínimas posteriores" }
+    ];
+
+    proporciones.forEach(prop => {
+        const wVal = prop.wet / 100;
+        const dVal = prop.dry / 100;
+        const resultado = (twet * wVal) + (tdry * dVal);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-weight:bold">${prop.label}</td>
+            <td>${prop.wet.toFixed(2)}%</td>
+            <td>${prop.dry.toFixed(2)}%</td>
+            <td style="font-weight:bold; color:#2b6cb0; font-size:1.1em">
+                ${resultado.toFixed(2)} °C
+                <span class="sub-wet">(Twet calc: ${twet.toFixed(2)} °C)</span>
+            </td>
+            <td style="text-align:left">${prop.rec}</td>
+        `;
+        body.appendChild(tr);
+    });
+
+    // --- 1. HUMIDEX (Fórmulas PhysLink) ---
+    const gamma = (17.27 * tdry) / (237.3 + tdry) + Math.log(rh / 100);
+    const Td = (237.3 * gamma) / (17.27 - gamma);
+    const e_phys = 6.11 * Math.exp(5417.753 * (1/273.16 - 1/(273.16 + Td)));
+    
+    let humidexVal;
+    if (e_phys > 10) {
+        humidexVal = tdry + 0.5555 * (e_phys - 10);
+        if (humidexVal < tdry) humidexVal = tdry;
+    } else {
+        humidexVal = tdry;
+    }
+
+    const trHumidex = document.createElement('tr');
+    trHumidex.style.backgroundColor = "#f0f4f8";
+    trHumidex.innerHTML = `
+        <td style="font-weight:bold">Humidex</td>
+        <td>-</td>
+        <td>-</td>
+        <td style="font-weight:bold; color:#2c5282; font-size:1.1em">
+            ${humidexVal.toFixed(2)} °C
+            <span class="sub-wet">(Twet calc: ${twet.toFixed(2)} °C)</span>
+        </td>
+        <td style="text-align:left">Índice canadiense de confort térmico por presión de vapor</td>
+    `;
+    body.appendChild(trHumidex);
+
+    // --- 2. HEAT INDEX (NOAA / PhysLink exacto) ---
+    const T_F = tdry * 1.8 + 32;
+    const R = rh;
+    
+    // Ecuación simplificada de Steadman (utilizada cuando HI < 80°F)
+    let HI_F = 0.5 * (T_F + 61.0 + ((T_F - 68.0) * 1.2) + (R * 0.094));
+
+    // Regresión de Rothfusz (aplicada cuando HI >= 80°F)
+    if (HI_F >= 80) {
+        HI_F = -42.379 + (2.04901523 * T_F) + (10.14333127 * R) 
+               - (0.22475541 * T_F * R) - (0.00683783 * T_F * T_F) 
+               - (0.05481717 * R * R) + (0.00122874 * T_F * T_F * R) 
+               + (0.00085282 * T_F * R * R) - (0.00000199 * T_F * T_F * R * R);
+
+        if (R < 13 && T_F >= 80 && T_F <= 112) {
+            const adj1 = ((13 - R) / 4) * Math.sqrt((17 - Math.abs(T_F - 95)) / 17);
+            HI_F -= adj1;
+        }
+        else if (R > 85 && T_F >= 80 && T_F <= 87) {
+            const adj2 = ((R - 85) / 10) * ((87 - T_F) / 5);
+            HI_F += adj2;
+        }
+    }
+
+    // Conversión directa a Celsius permitiendo variaciones por baja humedad
+    const HI_C = (HI_F - 32) / 1.8;
+
+    const trHI = document.createElement('tr');
+    trHI.style.backgroundColor = "#f0f4f8";
+    trHI.innerHTML = `
+        <td style="font-weight:bold">Heat Index (NOAA)</td>
+        <td>-</td>
+        <td>-</td>
+        <td style="font-weight:bold; color:#2c5282; font-size:1.1em">
+            ${HI_C.toFixed(2)} °C
+            <span class="sub-wet">(Twet calc: ${twet.toFixed(2)} °C)</span>
+        </td>
+        <td style="text-align:left">Índice de calor NWS/NOAA con correcciones por humedad extrema</td>
+    `;
+    body.appendChild(trHI);
+}
+
+window.onload = calcular;
+</script>
+</body>
+</html>
